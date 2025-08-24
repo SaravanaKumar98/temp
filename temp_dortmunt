@@ -1,0 +1,35 @@
+func FindPlaceWithDynamicBias(ctx context.Context, client *maps.Client, query string) (*maps.FindPlaceFromTextResponse, error) {
+    // 1. First geocode the city/text
+    geoReq := &maps.GeocodingRequest{
+        Address: query,
+    }
+    geoResults, err := client.Geocode(ctx, geoReq)
+    if err != nil || len(geoResults) == 0 {
+        return nil, fmt.Errorf("geocoding failed for %s: %v", query, err)
+    }
+
+    // Take the first geocode result
+    latlng := geoResults[0].Geometry.Location
+
+    // 2. Use that lat/lng as location bias
+    req := &maps.FindPlaceFromTextRequest{
+        Input:     query,
+        InputType: "textquery",
+        LocationBias: &maps.LocationBiasCircular{
+            Center: &maps.LatLng{
+                Lat: latlng.Lat,
+                Lng: latlng.Lng,
+            },
+            Radius: 50000, // 50km around city center
+        },
+        Fields: []maps.PlaceSearchFieldMask{
+            maps.PlaceSearchFieldMaskName,
+            maps.PlaceSearchFieldMaskFormattedAddress,
+            maps.PlaceSearchFieldMaskGeometry,
+        },
+    }
+
+    // 3. Call FindPlaceFromText
+    return client.FindPlaceFromText(ctx, req)
+}
+
